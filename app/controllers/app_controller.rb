@@ -5,7 +5,7 @@ require 'json'
 class AppController < ApplicationController
 
   def index
-    url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=CURRENCY&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&date=2012-01-01&CURRENCY=EUR")
+    url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=CURRENCY&columns=LABEL&columns=TYPE&GLOBAL_TYPE=Actif&columns=LAST_CLOSE_VALUE_IN_CURR&date=2012-01-01&CURRENCY=EUR")
     assets = JSON.parse get(url).read_body
   end
 
@@ -104,17 +104,38 @@ class AppController < ApplicationController
 
 
   def iterate_asset(t)
+    tab = []
+    tab_sharpe = []
+    tt = {}
     t.each do |asset|
+      tab.push(asset["ASSET_DATABASE_ID"]["value"].to_i)
+
       #p asset["CURRENCY"]["value"]
-      if asset["TYPE"]["value"] != "STOCK"
-        t.delete(asset)
-      end
-      r = JSON.parse get_ratio([20], [572])
-      if
-        
-      end
+
+      #if asset["TYPE"]["value"] != "STOCK"
+      #  t.delete(asset)
+      #end
+
+
+      #r = JSON.parse get_ratio([29,16,21,17,20], [asset["ASSET_DATABASE_ID"]["value"]], [])
+      #tab_sharpe.sort_by { |k, v["value"]| v[:value]}
 
     end
+    tab_sharpe = JSON.parse get_ratio([20], tab, [])
+
+    tab_sharpe.keys.each do |v|
+        tt[v] = tab_sharpe[v]["20"]["value"].sub(",",".").to_f
+    end
+    tt = tt.sort_by {|k,v| v}
+    tt = tt.reverse[0,21]
+    tt.each do |tabb|
+      url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset/#{tabb[0].to_i}?columns=LAST_CLOSE_VALUE_IN_CURR")
+      tabb.insert(2, (JSON.parse get(url).read_body)["LAST_CLOSE_VALUE_IN_CURR"]["value"].sub(",",".").to_f)
+      tabb.insert(3, (500000/tabb[2]).to_i)
+    end
+
+    # 500 000€
+
   end
 
   def iterate_portfolio(p)
@@ -125,7 +146,7 @@ class AppController < ApplicationController
 
   end
 
-  def get_ratio(ratio, asset)
+  def get_ratio(ratio, asset, bench)
     url = URI("https://dolphin.jump-technology.com:3389/api/v1/ratio/invoke")
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
@@ -136,7 +157,11 @@ class AppController < ApplicationController
     request["content-type"] = 'application/json'
     request["cache-control"] = 'no-cache'
     request["postman-token"] = '1ba6f74d-e67d-0ced-e00c-b6d0a0ff990d'
-    h = {"ratio" => ratio, "asset" => asset, "bench" => "null", "startDate" => "2012-01-01", "endDate" => "2017-01-01", "frequency" => "null"}
+    b = "null"
+    if bench != []
+      b = bench
+    end
+    h = {"ratio" => ratio, "asset" => asset, "bench" => b, "startDate" => "2012-01-01", "endDate" => "2017-01-01", "frequency" => "null"}
     #request.body = "{ \r\n\"ratio\":#{ratio},\r\n\"asset\":#{asset},\r\n\"bench\":null,\r\n\"startDate\":\"2015-01-01\",\r\n\"endDate\":\"2017-01-01\",\r\n\"frequency\":null\r\n}"
     request.body = h.to_json
 
