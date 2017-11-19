@@ -5,6 +5,11 @@ require 'json'
 class AppController < ApplicationController
 
   def index
+    url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=CURRENCY&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&date=2012-01-01&CURRENCY=EUR")
+    assets = JSON.parse get(url).read_body
+  end
+
+  def index_dep
     #https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&CURRENCY=EUR
     url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK")
     #url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&CURRENCY=EUR")
@@ -80,6 +85,9 @@ class AppController < ApplicationController
     response = http.request(request)
     puts response.read_body
   end
+
+
+
   def get(url)
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
@@ -92,11 +100,23 @@ class AppController < ApplicationController
 
     return response = http.request(request)
   end
+
+
+
   def iterate_asset(t)
     t.each do |asset|
-      p asset["CURRENCY"]["value"]
+      #p asset["CURRENCY"]["value"]
+      if asset["TYPE"]["value"] != "STOCK"
+        t.delete(asset)
+      end
+      r = JSON.parse get_ratio([20], [572])
+      if
+        
+      end
+
     end
   end
+
   def iterate_portfolio(p)
     p["values"]["2012-01-01"].each do |asset|
       # ID = ["asset"]["asset"]
@@ -104,7 +124,8 @@ class AppController < ApplicationController
     end
 
   end
-  def get_ratio
+
+  def get_ratio(ratio, asset)
     url = URI("https://dolphin.jump-technology.com:3389/api/v1/ratio/invoke")
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
@@ -115,10 +136,12 @@ class AppController < ApplicationController
     request["content-type"] = 'application/json'
     request["cache-control"] = 'no-cache'
     request["postman-token"] = '1ba6f74d-e67d-0ced-e00c-b6d0a0ff990d'
-    request.body = "{ \r\n\"ratio\":[17,20,22,18],\r\n\"asset\":[572],\r\n\"bench\":null,\r\n\"startDate\":\"2015-01-01\",\r\n\"endDate\":\"2017-01-01\",\r\n\"frequency\":null\r\n}"
+    h = {"ratio" => ratio, "asset" => asset, "bench" => "null", "startDate" => "2012-01-01", "endDate" => "2017-01-01", "frequency" => "null"}
+    #request.body = "{ \r\n\"ratio\":#{ratio},\r\n\"asset\":#{asset},\r\n\"bench\":null,\r\n\"startDate\":\"2015-01-01\",\r\n\"endDate\":\"2017-01-01\",\r\n\"frequency\":null\r\n}"
+    request.body = h.to_json
 
     response = http.request(request)
-    puts response.read_body
+    return response.read_body
   end
 
 end
