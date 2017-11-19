@@ -1,0 +1,41 @@
+
+
+<form action="/action_page.php">
+<select class="selectpicker" multiple data-max-options="2">
+  <% @res.each do |asset| %>
+  <option><%= asset["LABEL"]["value"] %></option>
+  <% end %>
+</select>
+<input type="submit">
+</form>
+
+<select class="selectpicker" multiple data-max-options="2">
+  <option>Mustard</option>
+  <option>Ketchup</option>
+  <option>Relish</option>
+</select>
+
+<select id="compare" class="selectpicker" data-style="btn-success"  title="Compare Settings" data-width="350px" multiple>
+    <optgroup class="multiple-options" label="Compare">
+        <option class="exadra37-1-selection-by-group exadra37-group-compare" title="Compare Daily" selected>Daily</option>
+        <option class="exadra37-1-selection-by-group exadra37-group-compare" title="Compare Weekly">Weekly</option>
+        <option class="exadra37-1-selection-by-group exadra37-group-compare" title="Compare Monthly">Monthly</option>
+    </optgroup>
+    <optgroup class="multiple-options" label="Against">
+        <option class="exadra37-1-selection-by-group exadra37-group-against" title="Against Previous Week" selected>Previous Week</option>
+
+<button> create new portfolio </button>
+<button> create random portfolio </button>
+<% @res.each do |asset| %>
+  <!--<% if asset["ASSET_DATABASE_ID"]["value"] == "258" %>
+    <h1> portfolio </h1>
+  <% else %>-->
+    <h4>Name: <%= asset["LABEL"]["value"] %></h4>
+    <p>Value: <%= asset["LAST_CLOSE_VALUE_IN_CURR"]["value"] %> </p>
+    <p>Type: <%= asset["TYPE"]["value"] %> </p>
+    <p> ID: <%= asset["ASSET_DATABASE_ID"]["value"] %> </p>
+    <p> Currency: <%= asset["CURRENCY"]["value"]%> </p>
+  <!--<% end %>-->
+<% end %>
+
+<p> @js </p>
