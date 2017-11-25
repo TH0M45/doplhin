@@ -5,31 +5,26 @@ require 'json'
 class AppController < ApplicationController
 
   def index
-
   end
-
   def new
   end
-
   def show
   end
-
   def create
   end
-
   def edit
   end
-
   def update
   end
-
   def destroy
   end
 
+
+
   #CHECK
   def get_assets
-    url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&CURRENCY=USD")
-    @asset = JSON.parse get(url).read_body
+    url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&TYPE=FUND&CURRENCY=EUR")
+    init_asset = JSON.parse get(url).read_body
   end
 
   #CHECK
@@ -45,14 +40,15 @@ class AppController < ApplicationController
   end
 
   #CHECK
-  def generate_portfolio(tab_asset)
+  def generate_portfolio(quantity_tab)
     # tab_asset ==> tableau de la forme [[id, nb], [id, nb], [id, nb], [id, nb], [id, nb]]
     tab = []
-    tab_asset.each do |t|
+    quantity_tab.each do |t|
       tab.push create_portfolio_asset(t[0], t[1])
     end
     p_body = {"2012-01-01" => tab}
     p_header = {"label" => "PORTFOLIO_USER8", "currency" => {"code" => "EUR"}, "type" => "front", "values" => p_body}
+    return p_header
     #put_portfolio(p_header)
   end
 
@@ -75,7 +71,6 @@ class AppController < ApplicationController
   end
 
 
-
   def get(url)
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
@@ -91,36 +86,46 @@ class AppController < ApplicationController
 
 
   #CHECK
-  def iterate_asset(t)
-    asset_tab = []
-    t.each do |asset|
+  def iterate_asset(init_asset)
+    price_tab = []
+    init_asset.each do |asset|
       value = []
       value.push(asset["ASSET_DATABASE_ID"]["value"])
-      value.push((asset["LAST_CLOSE_VALUE_IN_CURR"]["value"]).sub(",",".")to_f)
-      asset_tab.push(asset["ASSET_DATABASE_ID"]["value"].to_i)
+      value.push((asset["LAST_CLOSE_VALUE_IN_CURR"]["value"]).sub(",",".").to_f)
+      price_tab.push(value)
     end
 
-    h_sharpe = get_ratio_in_hash(20, tab)
-    h_rend = get_ratio_in_hash(21, tab)
-    h_vol = get_ratio_in_hash(18, tab)
+    h_sharpe = get_ratio_in_hash(20, price_tab)
+    t_sharpe = h_sharpe.sort_by {|k,v| v}
+    t_sharpe = t_sharpe.reverse[0,20]
+    # 0-21 pour le portfolio
+    h_rend = get_ratio_in_hash(21, t_sharpe)
+    h_vol = get_ratio_in_hash(18, t_sharpe)
+    # liste des 20 meilleur ratio de sharpe
 
     #tt = tt.sort_by {|k,v| v}
     #tt = tt.reverse[0,21]
-    tt.each do |tabb|
-      url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset/#{tabb[0].to_i}?columns=LAST_CLOSE_VALUE_IN_CURR")
-      tabb.insert(2, (JSON.parse get(url).read_body)["LAST_CLOSE_VALUE_IN_CURR"]["value"].sub(",",".").to_f)
-      tabb.insert(3, (500000/tabb[2]).to_i)
-    end
-
-    # 500 000€
-
+    #tt.each do |tabb|
+    #  url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset/#{tabb[0].to_i}?columns=LAST_CLOSE_VALUE_IN_CURR")
+    #  tabb.insert(2, (JSON.parse get(url).read_body)["LAST_CLOSE_VALUE_IN_CURR"]["value"].sub(",",".").to_f)
+    #  tabb.insert(3, (500000/tabb[2]).to_i)
+    #end
+    poids = optimization(t_sharpe, h_rend, h_vol)
+    quant = w_to_q(poids, price_tab)
+    port = generate_portfolio(quant)
+    put_portfolio(port)
   end
 
+  #CHECK
   def get_ratio_in_hash(id_ratio, asset_tab)
     h = {}
-    tab = JSON.parse get_ratio([id_ratio], asset_tab, [])
-    tab.keys.each do |v|
-        h[v] = tab[v][id_ratio.to_s]["value"].sub(",",".").to_f
+    tab = []
+    asset_tab.each do |t|
+      tab.push t[0].to_i
+    end
+    ratio_tab = JSON.parse get_ratio([id_ratio], tab, [])
+    ratio_tab.keys.each do |v|
+        h[v] = ratio_tab[v][id_ratio.to_s]["value"].sub(",",".").to_f
     end
     return h
   end
@@ -156,8 +161,72 @@ class AppController < ApplicationController
     return response.read_body
   end
 
+  #CHECK
   def eval_portfolio
     return JSON.parse get_ratio([20], [572], [])
+  end
+
+  def fill_portfolio
+
+  end
+
+  def optimization(t_sharpe, h_rend, h_vol)
+    t_poids = []
+    t_sharpe.each do |sh|
+      value = []
+      value.push(sh[0])
+      value.push(0.01)
+      t_poids.push(value)
+    end
+      t_poids[0][1] = 0.81
+      mark = 80
+    until mark == 0
+      mark -= 1
+      i = 1
+      index = 0
+      tmp = 0
+      until i == 20
+        t_poids[i][1] += 0.01
+        new_sharpe = calcul_sharpe(t_poids, h_rend, h_vol)
+        # put new portfolio
+        # post invoke ratio [20] [572] []
+        if new_sharpe > tmp
+          index = i
+          tmp = new_sharpe
+        end
+        t_poids[i][1] -= 0.01
+        i += 1
+      end
+      t_poids[index][1] += 0.01
+    end
+    return t_poids
+  end
+
+#t_poids = [[171,], [],[],[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][]]
+
+  def calcul_sharpe(t_poids, h_rend, h_vol)
+    rf = 0.02
+    rendement = 0
+    volatility = 0
+    t_poids.each do |t|
+      rendement += h_rend[t[0]] * t[1]
+      volatility += h_vol[t[0]] * t[1]
+    end
+    sharpe = (rendement - rf) / volatility
+    return sharpe
+  end
+
+  def w_to_q(w_tab, price_tab)
+    # w_tab ==> tableau de la forme [[id, weight], [id, weight], [id, weight], [id, weight]
+    quantity_tab = []
+    somme = 10000000
+    w_tab.each do |tup|
+      value = []
+      value.push(tup[0])
+      value.push((somme * tup[1]) / (price_tab.to_h)[tup[0]])
+      quantity_tab.push(value)
+    end
+    return quantity_tab
   end
 
 end
