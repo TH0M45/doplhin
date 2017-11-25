@@ -5,39 +5,6 @@ require 'json'
 class AppController < ApplicationController
 
   def index
-    url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=CURRENCY&columns=LABEL&columns=TYPE&GLOBAL_TYPE=Actif&columns=LAST_CLOSE_VALUE_IN_CURR&date=2012-01-01&CURRENCY=EUR")
-    assets = JSON.parse get(url).read_body
-  end
-
-  def index_dep
-    #https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&CURRENCY=EUR
-    url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK")
-    #url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&CURRENCY=EUR")
-    @res = JSON.parse get(url).read_body
-    @res.each do |asset|
-      #if (asset["ASSET_DATABASE_ID"]["value"].equal?("258")||asset["ASSET_DATABASE_ID"]["value"].equal?("322")||asset["ASSET_DATABASE_ID"]["value"].equal?("130")||asset["ASSET_DATABASE_ID"]["value"].equal?("194")||asset["ASSET_DATABASE_ID"]["value"].equal?("195")||asset["ASSET_DATABASE_ID"]["value"].equal?("131")||asset["ASSET_DATABASE_ID"]["value"].equal?("260")||asset["ASSET_DATABASE_ID"]["value"].equal?("164")|| asset["ASSET_DATABASE_ID"]["value"].equal?("265")||asset["ASSET_DATABASE_ID"]["value"].equal?("44")||asset["ASSET_DATABASE_ID"]["value"].equal?("301")|| asset["ASSET_DATABASE_ID"]["value"].equal?("15")||asset["ASSET_DATABASE_ID"]["value"].equal?("16")||asset["ASSET_DATABASE_ID"]["value"].equal?("307")||asset["ASSET_DATABASE_ID"]["value"].equal?("84")||asset["ASSET_DATABASE_ID"]["value"].equal?("22")||asset["ASSET_DATABASE_ID"]["value"].equal?("279")||asset["ASSET_DATABASE_ID"]["value"].equal?("313")||asset["ASSET_DATABASE_ID"]["value"].equal?("251")||asset["ASSET_DATABASE_ID
-      #"]["value"].equal?("158"))
-        p asset["LABEL"]
-        p asset["ASSET_DATABASE_ID"]
-        p asset["LAST_CLOSE_VALUE_IN_CURR"]
-        p asset["TYPE"]
-    end
-    #puts @res.size
-
-
-    url2 = URI("https://dolphin.jump-technology.com:3389/api/v1/portfolio/572/dyn_amount_compo")
-    @pot = JSON.parse get(url2).read_body
-    #get_ratio
-    put_portfolio
-  end
-
-  def create_random
-    url = URI("https://dolphin.jump-technology.com:3389/api/v1/portfolio/572/dyn_amount_compo")
-    @re = JSON.parse get(url).read_body
-    @re["values"]["2012-01-01"].each |asset|
-    ptf = '{"label":"PORTFOLIO_USER8","currency":{"code":"EUR"},"type":"front","values":{"2012-01-01":[{"asset":{"asset":169,"quantity":1.0}},{"asset":{"asset":109,"quantity":2.567394095}}]}}'
-
-    # exactement de 20 actifs
 
   end
 
@@ -63,7 +30,6 @@ class AppController < ApplicationController
   def get_assets
     url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&CURRENCY=USD")
     @asset = JSON.parse get(url).read_body
-
   end
 
   #CHECK
@@ -83,7 +49,7 @@ class AppController < ApplicationController
     # tab_asset ==> tableau de la forme [[id, nb], [id, nb], [id, nb], [id, nb], [id, nb]]
     tab = []
     tab_asset.each do |t|
-      tab.unshift create_portfolio_asset(t[0], t[1])
+      tab.push create_portfolio_asset(t[0], t[1])
     end
     p_body = {"2012-01-01" => tab}
     p_header = {"label" => "PORTFOLIO_USER8", "currency" => {"code" => "EUR"}, "type" => "front", "values" => p_body}
@@ -126,30 +92,20 @@ class AppController < ApplicationController
 
   #CHECK
   def iterate_asset(t)
-    tab = []
-    tab_sharpe = []
-    tt = {}
+    asset_tab = []
     t.each do |asset|
-      tab.push(asset["ASSET_DATABASE_ID"]["value"].to_i)
-
-      #p asset["CURRENCY"]["value"]
-
-      #if asset["TYPE"]["value"] != "STOCK"
-      #  t.delete(asset)
-      #end
-
-
-      #r = JSON.parse get_ratio([29,16,21,17,20], [asset["ASSET_DATABASE_ID"]["value"]], [])
-      #tab_sharpe.sort_by { |k, v["value"]| v[:value]}
-
+      value = []
+      value.push(asset["ASSET_DATABASE_ID"]["value"])
+      value.push((asset["LAST_CLOSE_VALUE_IN_CURR"]["value"]).sub(",",".")to_f)
+      asset_tab.push(asset["ASSET_DATABASE_ID"]["value"].to_i)
     end
-    tab_sharpe = JSON.parse get_ratio([20], tab, [])
 
-    tab_sharpe.keys.each do |v|
-        tt[v] = tab_sharpe[v]["20"]["value"].sub(",",".").to_f
-    end
-    tt = tt.sort_by {|k,v| v}
-    tt = tt.reverse[0,21]
+    h_sharpe = get_ratio_in_hash(20, tab)
+    h_rend = get_ratio_in_hash(21, tab)
+    h_vol = get_ratio_in_hash(18, tab)
+
+    #tt = tt.sort_by {|k,v| v}
+    #tt = tt.reverse[0,21]
     tt.each do |tabb|
       url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset/#{tabb[0].to_i}?columns=LAST_CLOSE_VALUE_IN_CURR")
       tabb.insert(2, (JSON.parse get(url).read_body)["LAST_CLOSE_VALUE_IN_CURR"]["value"].sub(",",".").to_f)
@@ -158,6 +114,15 @@ class AppController < ApplicationController
 
     # 500 000€
 
+  end
+
+  def get_ratio_in_hash(id_ratio, asset_tab)
+    h = {}
+    tab = JSON.parse get_ratio([id_ratio], asset_tab, [])
+    tab.keys.each do |v|
+        h[v] = tab[v][id_ratio.to_s]["value"].sub(",",".").to_f
+    end
+    return h
   end
 
   def iterate_portfolio(p)
@@ -192,7 +157,7 @@ class AppController < ApplicationController
   end
 
   def eval_portfolio
-    return get_ratio([20], [572], [])
+    return JSON.parse get_ratio([20], [572], [])
   end
 
 end
