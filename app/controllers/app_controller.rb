@@ -5,6 +5,7 @@ require 'json'
 class AppController < ApplicationController
 
   def index
+    
   end
   def new
   end
@@ -110,7 +111,7 @@ class AppController < ApplicationController
     #  tabb.insert(2, (JSON.parse get(url).read_body)["LAST_CLOSE_VALUE_IN_CURR"]["value"].sub(",",".").to_f)
     #  tabb.insert(3, (500000/tabb[2]).to_i)
     #end
-    poids = optimization(t_sharpe, h_rend, h_vol)
+    poids = optimization(t_sharpe, h_rend, h_vol, price_tab)
     quant = w_to_q(poids, price_tab)
     port = generate_portfolio(quant)
     put_portfolio(port)
@@ -170,7 +171,7 @@ class AppController < ApplicationController
 
   end
 
-  def optimization(t_sharpe, h_rend, h_vol)
+  def optimization(t_sharpe, h_rend, h_vol, price_tab)
     t_poids = []
     t_sharpe.each do |sh|
       value = []
@@ -179,15 +180,16 @@ class AppController < ApplicationController
       t_poids.push(value)
     end
       t_poids[0][1] = 0.81
-      mark = 80
+      mark = 40
     until mark == 0
+      t_poids[0][1] -= 0.01
       mark -= 1
       i = 1
       index = 0
-      tmp = 0
+      tmp = calcul_sharpe(t_poids, h_rend, h_vol, price_tab)
       until i == 20
         t_poids[i][1] += 0.01
-        new_sharpe = calcul_sharpe(t_poids, h_rend, h_vol)
+        new_sharpe = calcul_sharpe(t_poids, h_rend, h_vol, price_tab)
         # put new portfolio
         # post invoke ratio [20] [572] []
         if new_sharpe > tmp
@@ -204,16 +206,13 @@ class AppController < ApplicationController
 
 #t_poids = [[171,], [],[],[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][]]
 
-  def calcul_sharpe(t_poids, h_rend, h_vol)
-    rf = 0.02
-    rendement = 0
-    volatility = 0
-    t_poids.each do |t|
-      rendement += h_rend[t[0]] * t[1]
-      volatility += h_vol[t[0]] * t[1]
-    end
-    sharpe = (rendement - rf) / volatility
-    return sharpe
+  def calcul_sharpe(t_poids, h_rend, h_vol, price_tab)
+    quant = w_to_q(t_poids, price_tab)
+    port = generate_portfolio(quant)
+    put_portfolio(port)
+    ratio = JSON.parse get_ratio([20], [572], [])
+    p (ratio["572"]["20"]["value"]).sub(",",".").to_f
+    return (ratio["572"]["20"]["value"]).sub(",",".").to_f
   end
 
   def w_to_q(w_tab, price_tab)
