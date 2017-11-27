@@ -5,7 +5,7 @@ require 'json'
 class AppController < ApplicationController
 
   def index
-
+    get_assets
   end
   def new
   end
@@ -26,6 +26,7 @@ class AppController < ApplicationController
   def get_assets
     url = URI("https://dolphin.jump-technology.com:3389/api/v1/asset?columns=ASSET_DATABASE_ID&columns=LABEL&columns=TYPE&columns=LAST_CLOSE_VALUE_IN_CURR&columns=CURRENCY&date=2012-01-01&TYPE=STOCK&TYPE=FUND&CURRENCY=EUR")
     init_asset = JSON.parse get(url).read_body
+    iterate_asset(init_asset)
   end
 
   #CHECK
@@ -62,7 +63,7 @@ class AppController < ApplicationController
     http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
     request = Net::HTTP::Put.new(url)
-    request.basic_auth 'user_test', 'jumpTest'
+    request.basic_auth 'epita_user_8', 'dolphin61357'
     request["content-type"] = 'application/json'
     request["cache-control"] = 'no-cache'
     request["postman-token"] = '10a3570e-f9a2-afe4-18bb-4d31536b4439'
@@ -78,7 +79,7 @@ class AppController < ApplicationController
     http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
     request = Net::HTTP::Get.new(url)
-    request.basic_auth 'user_test', 'jumpTest'
+    request.basic_auth 'epita_user_8', 'dolphin61357'
     request["cache-control"] = 'no-cache'
     #request["postman-token"] = 'fe1f347c-c612-2217-4f90-ef8db466bdb1'
 
@@ -147,7 +148,7 @@ class AppController < ApplicationController
     http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
     request = Net::HTTP::Post.new(url)
-    request.basic_auth 'user_test', 'jumpTest'
+    request.basic_auth 'epita_user_8', 'dolphin61357'
     request["content-type"] = 'application/json'
     request["cache-control"] = 'no-cache'
     request["postman-token"] = '1ba6f74d-e67d-0ced-e00c-b6d0a0ff990d'
@@ -167,28 +168,29 @@ class AppController < ApplicationController
     return JSON.parse get_ratio([20], [595], [])
   end
 
-  def fill_portfolio
 
-  end
+#poids = [["443", 10], ["460", 1], ["441", 10], ["416", 1], ["393", 1], ["471", 5], ["370", 7], ["540", 10], ["478", 1], ["509", 1], ["466", 1], ["384", 1], ["419", 10], ["447", 10], ["505", 10], ["440", 1], ["389", 10], ["442", 1], ["446", 1], ["530", 1]]
 
-  def optimization(t_sharpe, h_rend, h_vol, price_tab)
-    #if poids ==
-    t_poids = []
-    t_sharpe.each do |sh|
-      value = []
-      value.push(sh[0])
-      value.push(0.01)
-      t_poids.push(value)
+  def optimization(t_sharpe, h_rend, h_vol, price_tab, poids)
+    t_poids = poids
+    if t_poids == []
+      t_poids = []
+      t_sharpe.each do |sh|
+        value = []
+        value.push(sh[0])
+        value.push(1)
+        t_poids.push(value)
+      end
     end
-      mark = 80
+    mark = 80
     until mark == 0
       mark -= 1
       index = 0
       tmp = 0 #calcul_sharpe(t_poids, h_rend, h_vol, price_tab)
       i = 0
       until i == 20
-        if t_poids[i][1] < 0.1
-          t_poids[i][1] += 0.01
+        if t_poids[i][1] < 10
+          t_poids[i][1] += 1
           new_sharpe = calcul_sharpe(t_poids, h_rend, h_vol, price_tab)
           # put new portfolio
           # post invoke ratio [20] [595] []
@@ -196,11 +198,11 @@ class AppController < ApplicationController
             index = i
             tmp = new_sharpe
           end
-          t_poids[i][1] -= 0.01
+          t_poids[i][1] -= 1
         end
         i += 1
       end
-      t_poids[index][1] += 0.01
+      t_poids[index][1] += 1
       p tmp
     end
     return t_poids
@@ -213,7 +215,6 @@ class AppController < ApplicationController
     port = generate_portfolio(quant)
     put_portfolio(port)
     ratio = JSON.parse get_ratio([20], [595], [])
-    p (ratio["595"]["20"]["value"]).sub(",",".").to_f
     return (ratio["595"]["20"]["value"]).sub(",",".").to_f
   end
 
@@ -224,10 +225,10 @@ class AppController < ApplicationController
     w_tab.each do |tup|
       value = []
       value.push(tup[0])
-      if tup[1] == 0.01
-        value.push(((somme * tup[1]) / (price_tab.to_h)[tup[0]]).to_i + 1)
+      if tup[1] == 1
+        value.push(((somme * tup[1] / 100) / (price_tab.to_h)[tup[0]]).to_i + 1)
       else
-        value.push(((somme * tup[1]) / (price_tab.to_h)[tup[0]]).to_i)
+        value.push(((somme * tup[1] / 100) / (price_tab.to_h)[tup[0]]).to_i)
       end
       quantity_tab.push(value)
     end
